@@ -1,15 +1,4 @@
-#include <iostream>
-#include <sqlite3.h>
-#include <vector>
-#include <unordered_map>
-using namespace std;
-
-struct user {
-    int id;
-    double balance;
-    string name, description, password;
-    unordered_map<int, int> usr_stocks;
-};
+#include "user.h"
 
 void check_error(int rc, char *errmsg, sqlite3 *db) {
     if (rc != SQLITE_OK)
@@ -28,7 +17,7 @@ static void load_usr_stocks(sqlite3 *db, user &usr) {
     sqlite3_finalize(stmt);
 }
 
-static void ensure_user_tables(sqlite3 *db) {
+void ensure_user_tables(sqlite3 *db) {
     char *errmsg = nullptr;
 
     int rc = sqlite3_exec(db,
@@ -105,9 +94,16 @@ vector<user> get_users() {
         cerr << "DB error\n";
         return {};
     }
+
+    ensure_user_tables(db);
+
     sqlite3_stmt *stmt;
     string sql = "SELECT id, balance, name, description, password FROM USERS";
-    sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
+    if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+        cerr << "DB error while preparing the request\n";
+        sqlite3_close(db);
+        return {};
+    }
 
     vector<user> users;
     while (sqlite3_step(stmt) == SQLITE_ROW) {
@@ -116,11 +112,11 @@ vector<user> get_users() {
         usr.id = sqlite3_column_int(stmt, 0);
         usr.balance = sqlite3_column_double(stmt, 1);
 
-        const char *name = (const char *)sqlite3_column_text(stmt, 2);
-        const char *desc = (const char *)sqlite3_column_text(stmt, 3);
-        const char *pass = (const char *)sqlite3_column_text(stmt, 4);
-        usr.name = name ? name : "";
-        usr.description = desc ? desc : "";
+        const char *name = (const char *)sqlite3_column_text(stmt, 2),
+                   *desc = (const char *)sqlite3_column_text(stmt, 3),
+                   *pass = (const char *)sqlite3_column_text(stmt, 4);
+        usr.name = name ? name : "",
+        usr.description = desc ? desc : "",
         usr.password = pass ? pass : "";
 
         load_usr_stocks(db, usr);
@@ -140,9 +136,16 @@ user get_user_by_id(int id) {
         cerr << "DB error\n";
         return {};
     }
+
+    ensure_user_tables(db);
+
     string sql = "SELECT id, balance, name, description, password FROM users WHERE id = ?";
     sqlite3_stmt *stmt;
-    sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
+    if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+        cerr << "DB error while preparing the request\n";
+        sqlite3_close(db);
+        return {};
+    }
     sqlite3_bind_int(stmt, 1, id);
 
     user usr;
