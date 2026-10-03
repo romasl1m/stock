@@ -1,4 +1,5 @@
 #include "user.h"
+#include "stock.h"
 
 void check_error(int rc, char *errmsg, sqlite3 *db) {
     if (rc != SQLITE_OK)
@@ -38,12 +39,26 @@ void ensure_user_tables(sqlite3 *db) {
                       "PRIMARY KEY (USER_ID, STOCK_ID));",
                       nullptr, nullptr, &errmsg);
     check_error(rc, errmsg, db);
+
+    rc = sqlite3_exec(db,
+                      "CREATE TABLE IF NOT EXISTS TRANSACTIONS ("
+                      "ID INTEGER PRIMARY KEY AUTOINCREMENT,"
+                      "USER_ID INTEGER NOT NULL,"
+                      "STOCK_ID INTEGER NOT NULL,"
+                      "TYPE TEXT NOT NULL,"
+                      "QUANTITY INTEGER NOT NULL,"
+                      "PRICE REAL NOT NULL,"
+                      "TIMESTAMP DATETIME DEFAULT CURRENT_TIMESTAMP,"
+                      "FOREIGN KEY (USER_ID) REFERENCES USERS(ID),"
+                      "FOREIGN KEY (STOCK_ID) REFERENCES STOCKS(ID));",
+                      nullptr, nullptr, &errmsg);
+    check_error(rc, errmsg, db);
 }
 
 void add_user_to_db(const user &usr) {
     sqlite3 *db;
 
-    int rc = sqlite3_open("users.db", &db);
+    int rc = sqlite3_open("trading.db", &db);
     if (rc) {
         cerr << "DB error\n";
         return;
@@ -89,7 +104,7 @@ void add_user_to_db(const user &usr) {
 vector<user> get_users() {
     sqlite3 *db;
 
-    int rc = sqlite3_open("users.db", &db);
+    int rc = sqlite3_open("trading.db", &db);
     if (rc) {
         cerr << "DB error\n";
         return {};
@@ -128,10 +143,10 @@ vector<user> get_users() {
     return users;
 }
 
-user get_user_by_id(int id) {
+user get_user_by_id(const int &id) {
     sqlite3 *db;
 
-    int rc = sqlite3_open("users.db", &db);
+    int rc = sqlite3_open("trading.db", &db);
     if (rc) {
         cerr << "DB error\n";
         return {};
@@ -165,4 +180,32 @@ user get_user_by_id(int id) {
     sqlite3_finalize(stmt);
     sqlite3_close(db);
     return usr;
+}
+
+double get_portfolio_value(const int &id) {
+    sqlite3 *db;
+    int rc = sqlite3_open("trading.db", &db);
+    if (rc) {
+        cerr << "DB error\n";
+        return 0.0;
+    }
+
+    ensure_user_tables(db),
+        ensure_stock_tables(db);
+
+    string sql = "SELECT SUM(us.QUANTITY * s.COST) FROM USER_STOCKS us "
+                 "JOIN STOCKS s ON us.STOCK_ID = s.ID "
+                 "WHERE us.USER_ID = ?";
+    sqlite3_stmt *stmt;
+    double value = 0.0;
+
+    if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_int(stmt, 1, id);
+        if (sqlite3_step(stmt) == SQLITE_ROW and sqlite3_column_type(stmt, 0) != SQLITE_NULL)
+            value = sqlite3_column_double(stmt, 0);
+        sqlite3_finalize(stmt);
+    }
+
+    sqlite3_close(db);
+    return value;
 }

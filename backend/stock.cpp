@@ -1,15 +1,8 @@
-#include <iostream>
-#include <sqlite3.h>
 #include "user.h"
+#include "stock.h"
 using namespace std;
 
-struct stock {
-    int id;
-    double cost;
-    string name, description;
-};
-
-static void ensure_stock_tables(sqlite3 *db) {
+void ensure_stock_tables(sqlite3 *db) {
     char *errmsg = nullptr;
     int rc = sqlite3_exec(db,
                           "CREATE TABLE IF NOT EXISTS STOCKS ("
@@ -24,7 +17,7 @@ static void ensure_stock_tables(sqlite3 *db) {
 void add_stock_to_db(const stock &stk) {
     sqlite3 *db;
 
-    int rc = sqlite3_open("stocks.db", &db);
+    int rc = sqlite3_open("trading.db", &db);
     if (rc) {
         cerr << "DB error\n";
         return;
@@ -57,7 +50,7 @@ void add_stock_to_db(const stock &stk) {
 vector<stock> get_stocks() {
     sqlite3 *db;
 
-    int rc = sqlite3_open("stocks.db", &db);
+    int rc = sqlite3_open("trading.db", &db);
     if (rc) {
         cerr << "DB error\n";
         return {};
@@ -93,10 +86,10 @@ vector<stock> get_stocks() {
     return stocks;
 }
 
-stock get_stock_by_id(int id) {
+stock get_stock_by_id(const int &id) {
     sqlite3 *db;
 
-    int rc = sqlite3_open("stocks.db", &db);
+    int rc = sqlite3_open("trading.db", &db);
     if (rc) {
         cerr << "DB error\n";
         return {};
@@ -146,7 +139,7 @@ void buy_stock(const int &usr_id, const int &stk_id, const int &quantity) {
     usr.usr_stocks[stk_id] += quantity;
 
     sqlite3 *db;
-    int rc = sqlite3_open("users.db", &db);
+    int rc = sqlite3_open("trading.db", &db);
     if (rc) {
         cerr << "DB error\n";
         return;
@@ -178,6 +171,17 @@ void buy_stock(const int &usr_id, const int &stk_id, const int &quantity) {
         sqlite3_finalize(stk_stmt);
     }
 
+    string tx_sql = "INSERT INTO TRANSACTIONS (USER_ID, STOCK_ID, TYPE, QUANTITY, PRICE) VALUES (?, ?, 'BUY', ?, ?);";
+    sqlite3_stmt *tx_stmt;
+    if (sqlite3_prepare_v2(db, tx_sql.c_str(), -1, &tx_stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_int(tx_stmt, 1, usr_id);
+        sqlite3_bind_int(tx_stmt, 2, stk_id);
+        sqlite3_bind_int(tx_stmt, 3, quantity);
+        sqlite3_bind_double(tx_stmt, 4, price);
+        sqlite3_step(tx_stmt);
+        sqlite3_finalize(tx_stmt);
+    }
+
     sqlite3_exec(db, "COMMIT;", nullptr, nullptr, nullptr);
 
     sqlite3_close(db);
@@ -203,7 +207,7 @@ void sell_stock(const int &usr_id, const int &stk_id, const int &quantity) {
         it->second -= quantity;
 
     sqlite3 *db;
-    int rc = sqlite3_open("users.db", &db);
+    int rc = sqlite3_open("trading.db", &db);
     if (rc) {
         cerr << "DB error\n";
         return;
@@ -243,6 +247,17 @@ void sell_stock(const int &usr_id, const int &stk_id, const int &quantity) {
         }
     }
 
+    string tx_sql = "INSERT INTO TRANSACTIONS (USER_ID, STOCK_ID, TYPE, QUANTITY, PRICE) VALUES (?, ?, 'SELL', ?, ?);";
+    sqlite3_stmt *tx_stmt;
+    if (sqlite3_prepare_v2(db, tx_sql.c_str(), -1, &tx_stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_int(tx_stmt, 1, usr_id);
+        sqlite3_bind_int(tx_stmt, 2, stk_id);
+        sqlite3_bind_int(tx_stmt, 3, quantity);
+        sqlite3_bind_double(tx_stmt, 4, revenue);
+        sqlite3_step(tx_stmt);
+        sqlite3_finalize(tx_stmt);
+    }
+
     sqlite3_exec(db, "COMMIT;", nullptr, nullptr, nullptr);
 
     sqlite3_close(db);
@@ -251,7 +266,7 @@ void sell_stock(const int &usr_id, const int &stk_id, const int &quantity) {
 void update_stocks(const int &growth) {
     srand(time(NULL));
     sqlite3 *db;
-    int rc = sqlite3_open("stocks.db", &db);
+    int rc = sqlite3_open("trading.db", &db);
     if (rc) {
         cerr << "DB error\n";
         return;
@@ -264,7 +279,7 @@ void update_stocks(const int &growth) {
     sqlite3_exec(db, "BEGIN TRANSACTION;", nullptr, nullptr, nullptr);
 
     for (auto &stk : stocks) {
-        double pct = (rand() % (2 * growth + 1) - growth) / 100.0;
+        double pct = (rand() % ((growth << 1) | 1) - growth) / 100.0;
         stk.cost *= (1.0 + pct);
         stk.cost = max(stk.cost, 0.01);
 

@@ -18,6 +18,7 @@ void check_error(int rc, char *errmsg, sqlite3 *db);
 void ensure_user_tables(sqlite3 *db);
 void add_user_to_db(const user &usr);
 vector<user> get_users();
-user get_user_by_id(int id);
+user get_user_by_id(const int &id);
+double get_portfolio_value(const int &id);
 
 #endif
