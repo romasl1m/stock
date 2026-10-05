@@ -75,11 +75,11 @@ void add_user_to_db(const user &usr) {
         return;
     }
 
-    sqlite3_bind_int(stmt, 1, usr.id);
-    sqlite3_bind_double(stmt, 2, usr.balance);
-    sqlite3_bind_text(stmt, 3, usr.name.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 4, usr.description.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 5, usr.password.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_int(stmt, 1, usr.id),
+        sqlite3_bind_double(stmt, 2, usr.balance),
+        sqlite3_bind_text(stmt, 3, usr.name.c_str(), -1, SQLITE_STATIC),
+        sqlite3_bind_text(stmt, 4, usr.description.c_str(), -1, SQLITE_STATIC),
+        sqlite3_bind_text(stmt, 5, usr.password.c_str(), -1, SQLITE_STATIC);
 
     rc = sqlite3_step(stmt);
     if (rc != SQLITE_DONE)
@@ -90,11 +90,11 @@ void add_user_to_db(const user &usr) {
         string stk_sql = "INSERT OR REPLACE INTO USER_STOCKS (USER_ID, STOCK_ID, QUANTITY) VALUES (?, ?, ?);";
         sqlite3_stmt *stk_stmt;
         if (sqlite3_prepare_v2(db, stk_sql.c_str(), -1, &stk_stmt, nullptr) == SQLITE_OK) {
-            sqlite3_bind_int(stk_stmt, 1, usr.id);
-            sqlite3_bind_int(stk_stmt, 2, stock_id);
-            sqlite3_bind_int(stk_stmt, 3, quantity);
-            sqlite3_step(stk_stmt);
-            sqlite3_finalize(stk_stmt);
+            sqlite3_bind_int(stk_stmt, 1, usr.id),
+                sqlite3_bind_int(stk_stmt, 2, stock_id),
+                sqlite3_bind_int(stk_stmt, 3, quantity),
+                sqlite3_step(stk_stmt),
+                sqlite3_finalize(stk_stmt);
         }
     }
 
