@@ -5,6 +5,7 @@
 #include <sqlite3.h>
 #include <vector>
 #include <unordered_map>
+#include "user.h"
 using namespace std;
 
 struct game {
@@ -12,6 +13,12 @@ struct game {
     bool status;
     string password;
     double starting_balance;
+    vector<user> users;
 };
+
+void ensure_game_tables(sqlite3 *db);
+void create_game(const game &gm);
+void end_game(const game &gm);
+void join_game(game &gm, const user &usr);
 
 #endif
